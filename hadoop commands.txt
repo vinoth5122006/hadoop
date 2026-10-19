@@ -1,0 +1,220 @@
+1. sudo apt update
+
+2. sudo apt install ssh -y
+
+3. wget https://dlcdn.apache.org/hadoop/common/hadoop-3.3.6/hadoop-3.3.6.tar.gz
+
+4. tar -xzf hadoop-3.3.6.tar.gz
+
+5. ls
+
+6. mv hadoop-3.3.6 hadoop
+
+7. sudo apt install openjdk-11-jdk -y
+
+8. java -version
+
+9. cd hadoop
+
+10. ls
+
+11. mkdir -p data
+
+12. cd data
+
+13. mkdir -p datanode namenode
+
+14. cd ~/hadoop
+
+15. dirname $(dirname $(readlink -f $(which java)))
+
+16. pwd
+
+17. gedit ~/.bashrc
+
+18. Add the following lines to ~/.bashrc:
+
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+export HADOOP_HOME=$HOME/hadoop
+export HADOOP_INSTALL=$HADOOP_HOME
+export HADOOP_MAPRED_HOME=$HADOOP_HOME
+export HADOOP_COMMON_HOME=$HADOOP_HOME
+export HADOOP_HDFS_HOME=$HADOOP_HOME
+export HADOOP_YARN_HOME=$HADOOP_HOME
+export HADOOP_COMMON_LIB_NATIVE=$HADOOP_HOME/lib/native
+export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
+export HADOOP_OPTS="-Djava.library.path=$HADOOP_HOME/lib/native"
+
+19. source ~/.bashrc
+
+20. cd ~/hadoop/etc/hadoop
+
+21. gedit hadoop-env.sh
+
+22. Add or update the JAVA_HOME line:
+
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+
+23. gedit core-site.xml
+
+24. Add the following property inside the configuration tags:
+
+<property>
+  <name>fs.defaultFS</name>
+  <value>hdfs://localhost:9000</value>
+</property>
+
+25. gedit hdfs-site.xml
+
+26. Add the following properties inside the configuration tags (replace USER with your Ubuntu username and use its actual home directory):
+
+<property>
+  <name>dfs.replication</name>
+  <value>1</value>
+</property>
+<property>
+  <name>dfs.name.dir</name>
+  <value>/home/USER/hadoop/data/namenode</value>
+</property>
+<property>
+  <name>dfs.data.dir</name>
+  <value>/home/USER/hadoop/data/datanode</value>
+</property>
+
+27. gedit mapred-site.xml
+
+28. Add the following property inside the configuration tags:
+
+<property>
+  <name>mapreduce.framework.name</name>
+  <value>yarn</value>
+</property>
+
+29. gedit yarn-site.xml
+
+30. Add the following properties inside the configuration tags:
+
+<property>
+  <name>yarn.nodemanager.aux-services</name>
+  <value>mapreduce_shuffle</value>
+</property>
+<property>
+  <name>yarn.nodemanager.auxservices.mapreduce.shuffle.class</name>
+  <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+</property>
+
+31. ssh-keygen -t rsa
+
+32. cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+
+33. chmod 640 ~/.ssh/authorized_keys
+
+34. ssh localhost
+
+35. exit
+
+36. hdfs namenode -format
+
+37. start-dfs.sh
+
+38. start-yarn.sh
+
+39. jps
+
+40. cd ~
+
+41. mkdir -p WordCount
+
+42. cd WordCount
+
+43. cat > WordCount.java <<'EOF'
+import java.io.IOException;
+import java.util.StringTokenizer;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class WordCount {
+    public static class TokenizerMapper
+            extends Mapper<Object, Text, Text, IntWritable> {
+        private final static IntWritable one = new IntWritable(1);
+        private Text word = new Text();
+
+        public void map(Object key, Text value, Context context)
+                throws IOException, InterruptedException {
+            StringTokenizer itr = new StringTokenizer(value.toString());
+            while (itr.hasMoreTokens()) {
+                word.set(itr.nextToken());
+                context.write(word, one);
+            }
+        }
+    }
+
+    public static class IntSumReducer
+            extends Reducer<Text, IntWritable, Text, IntWritable> {
+        private IntWritable result = new IntWritable();
+
+        public void reduce(Text key, Iterable<IntWritable> values,
+                           Context context)
+                throws IOException, InterruptedException {
+            int sum = 0;
+            for (IntWritable val : values) {
+                sum += val.get();
+            }
+            result.set(sum);
+            context.write(key, result);
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "word count");
+        job.setJarByClass(WordCount.class);
+        job.setMapperClass(TokenizerMapper.class);
+        job.setCombinerClass(IntSumReducer.class);
+        job.setReducerClass(IntSumReducer.class);
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}
+EOF
+
+44. cat > input.txt <<'EOF'
+hello hadoop
+hello world
+hadoop word count
+hello world
+EOF
+
+45. cat input.txt
+
+46. hdfs dfs -mkdir -p /input
+
+47. hdfs dfs -put input.txt /input/
+
+48. hdfs dfs -ls /input
+
+49. hadoop com.sun.tools.javac.Main WordCount.java
+
+50. jar cf wordcount.jar WordCount*.class WordCount$*.class
+
+51. hadoop jar wordcount.jar WordCount /input /output
+
+52. hdfs dfs -cat /output/part-r-00000
+
+53. hdfs dfs -get /output/part-r-00000 output.txt
+
+54. cat output.txt
+
+55. stop-yarn.sh
+
+56. stop-dfs.sh
