@@ -1,0 +1,71 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weather App</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            margin-top: 100px;
+        }
+
+        input, button {
+            padding: 8px;
+            margin: 5px;
+        }
+
+        #result {
+            margin-top: 20px;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Weatherstack API</h2>
+
+    <input type="text" id="city" placeholder="Enter city name">
+    <button onclick="getWeather()">Get Weather</button>
+
+    <div id="result"></div>
+
+    <script>
+        async function getWeather() {
+            let city = document.getElementById("city").value;
+            let key = "98e485f90e215f5f15cfe4a4b9f24db6";
+
+            let url = `https://api.weatherstack.com/current?access_key=${key}&query=${encodeURIComponent(city)}`;
+
+            try {
+                let response = await fetch(url);
+                let data = await response.json();
+
+                if (data.error) {
+                    document.getElementById("result").innerHTML =
+                        data.error.info;
+                    return;
+                }
+
+                document.getElementById("result").innerHTML =
+                    "City: " + data.location.name + "<br>" +
+                    "Temperature: " + data.current.temperature + " °C<br>" +
+                    "Weather: " + data.current.weather_descriptions[0] + "<br>" +
+                    "Humidity: " + data.current.humidity + "%<br>" +
+                    "Wind Speed: " + data.current.wind_speed + " km/h";
+            } catch (error) {
+                document.getElementById("result").innerHTML =
+                    "Failed to fetch weather data.";
+            }
+        }
+    </script>
+
+</body>
+</html>
+
+<!--
+https://api.weatherstack.com/current
+access_key 
+query
+-->
