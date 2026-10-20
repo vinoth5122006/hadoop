@@ -1,0 +1,193 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCE Home Page</title>
+</head>
+<body>
+
+  <h1>Thiagajar College of Engineering</h1>
+  <p>Welcome to TCE</p>
+  <hr>
+
+  <div id="login">
+    <h2>Login</h2>
+    <button id="loginBtn">Continue with Google</button>
+  </div>
+
+  <div id="home" style="display:none;">
+    <h2>TCE Feedback Form</h2>
+    <p id="userInfo"></p>
+
+    <form id="feedbackForm">
+      <label for="name">Name:</label>
+      <input id="name" type="text" required maxlength="100">
+      <br><br>
+
+      <label for="feedback">Feedback:</label>
+      <textarea id="feedback" required maxlength="2000"></textarea>
+      <br><br>
+
+      <button type="submit" id="submitBtn">Submit Feedback</button>
+    </form>
+
+    <p id="status"></p>
+    <button id="logoutBtn">Sign Out</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from
+      "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      onAuthStateChanged,
+      signOut
+    } from
+      "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      serverTimestamp
+    } from
+      "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDl7Ynm-Gdqyj_F1ZQRJId-fKIYCypnLyc",
+      authDomain: "tceweb-940cf.firebaseapp.com",
+      projectId: "tceweb-940cf",
+      storageBucket: "tceweb-940cf.firebasestorage.app",
+      messagingSenderId: "46118936132",
+      appId: "1:46118936132:web:552dc6ff0b1ca26db1e611"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    const login = document.getElementById("login");
+    const home = document.getElementById("home");
+    const status = document.getElementById("status");
+    const form = document.getElementById("feedbackForm");
+    const submitBtn = document.getElementById("submitBtn");
+
+    document.getElementById("loginBtn").onclick = async () => {
+      try {
+        await signInWithPopup(auth, provider);
+        status.textContent = "";
+      } catch (error) {
+        status.textContent = "Login error: " + error.message;
+      }
+    };
+
+    onAuthStateChanged(auth, (user) => {
+      login.style.display = user ? "none" : "block";
+      home.style.display = user ? "block" : "none";
+
+      if (user) {
+        document.getElementById("userInfo").textContent =
+          "Signed in as: " + user.email;
+
+        document.getElementById("name").value =
+          user.displayName || "";
+      }
+    });
+
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+
+      const user = auth.currentUser;
+      if (!user) {
+        status.textContent = "Please sign in first.";
+        return;
+      }
+
+      const name = document.getElementById("name").value.trim();
+      const feedback =
+        document.getElementById("feedback").value.trim();
+
+      if (!name || !feedback) {
+        status.textContent = "Enter both name and feedback.";
+        return;
+      }
+
+      submitBtn.disabled = true;
+      status.textContent = "Saving...";
+
+      try {
+        await addDoc(collection(db, "feedback"), {
+          name: name,
+          feedback: feedback,
+          userId: user.uid,
+          email: user.email,
+          createdAt: serverTimestamp()
+        });
+
+        status.textContent = "Feedback submitted successfully!";
+        form.reset();
+        document.getElementById("name").value =
+          user.displayName || "";
+      } catch (error) {
+        status.textContent = "Error: " + error.message;
+      } finally {
+        submitBtn.disabled = false;
+      }
+    };
+
+    document.getElementById("logoutBtn").onclick = async () => {
+      await signOut(auth);
+    };
+  </script>
+
+</body>
+</html>
+
+<!--
+rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /feedback/{feedbackId} {
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.feedback is string
+        && request.resource.data.feedback.size() > 0
+        && request.resource.data.feedback.size() <= 2000
+        && request.resource.data.email == request.auth.token.email;
+
+      allow read, update, delete: if false;
+    }
+  }
+}
+
+paste this inside /tceweb/public as index.html
+
+npm install -g firebase-tools
+
+"%APPDATA%\npm\firebase.cmd" --version
+
+go to the folder
+
+"%APPDATA%\npm\firebase.cmd" login
+
+"%APPDATA%\npm\firebase.cmd" init hosting
+
+"%APPDATA%\npm\firebase.cmd" use tceweb-940cf
+
+"%APPDATA%\npm\firebase.cmd" serve --only hosting
+
+"%APPDATA%\npm\firebase.cmd" deploy --only hosting
+
+
+-->
